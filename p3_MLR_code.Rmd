@@ -1,0 +1,128 @@
+---
+title: "p3_MLR_code"
+author: "Joe"
+date: "4/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+getwd()
+rm(list=ls())
+setwd("/Users/joezhou/Desktop/2020 Spring/BA/project3")
+getwd()
+
+#read text file
+x <- read.csv("house_cleaned.csv", header = TRUE, fileEncoding = "UTF-8-BOM")
+
+new_col1<-c(2,3,4,10,11)
+data<-x[,new_col1]
+#scatter plot
+pairs(~ data$SalePrice+data$LotFrontage+data$LotArea+data$GrLivArea+data$Total_rooms,
+ data=data)
+
+cor(data)
+
+```
+
+```{r}
+#Building MLR model
+y <- lm(data$SalePrice ~. ,data = data)
+#summary(y)
+#anova(y)
+
+#PREDICTED_Y
+y_hat <- 42755.207+(-716.221)*data$LotFrontage+1.264*data$LotArea+57.443*data$GrLivArea+16202.660*data$Total_rooms
+
+#residual
+e <- data$SalePrice - y_hat
+
+#Model Assumption
+plot(y_hat,e,xlab="Y_hat",ylab = "e")
+
+obsn<-nrow(data)
+num_obsn <- 1:obsn
+plot(num_obsn,e,xlab="index",ylab = "e")
+
+boxplot(e)
+qqnorm(e)
+qqline(e)
+
+```
+```{r}
+#combineing dataset with residuals
+new_data <- cbind(data,y$fitted.values,y$residuals)
+
+names(new_data)[6:7] <- c("Fitted_values","residuals")
+
+#standard errors for residuals
+
+std_err = summary(y)$sigma 
+
+#finding expected value
+n=nrow(new_data)
+expected_value = sapply(1:n,function(k) std_err*qnorm((k-0.375)/(n+0.25)))
+
+rho <- cor(expected_value,sort(y$residuals))
+
+#modified-levene test
+
+Group1 <- new_data[which((new_data$Fitted_values) < median(new_data$Fitted_values)), "residuals"]
+Group2 <- new_data[which((new_data$Fitted_values) >= median(new_data$Fitted_values)), "residuals"]
+
+#calculate mean absolute deviation
+M1 <- median(Group1)
+M2 <- median(Group2)
+
+#mean absolute deviation
+D1 <- sum(abs(Group1-M1)/length(Group1))
+D2 <- sum(abs(Group2-M2)/length(Group2))
+
+#pooled standard Error
+s_levene <- sqrt((sum((abs(Group1-M1)-D1)^2) + sum((abs(Group2-M2)-D2)^2)) /(n-2))
+
+#caculate absolute value of the test statistics
+t_levene <- abs((D1-D2)/(s_levene-sqrt((1/length(Group1))+(1/length(Group2)))))
+
+#find p-value for the above t-value
+p_levene = pt(t_levene,n-2,lower.tail = FALSE)
+# p = 0.2227238
+# p > alpha, cannot reject H0, error variance is constant
+```
+
+```{r}
+#Variance Inflation Factor
+p <- car :: vif(y)
+p1 <- mean(p)
+p
+p1
+```
+```{r}
+#consider all the interaction terms
+y1 <- lm(data$SalePrice ~.^2, data=data)
+summary(y1)
+#anova(y1)
+```
+```{r}
+#outlier diagnostic
+#diagoanl elements of hat
+h_d <- hatvalues(y)
+#studentized deleted residuals
+ti <- rstudent(y)
+#cooks distance
+cd <- cooks.distance(y)
+# DFFITS Values
+dfft <- dffits(y)
+#combining all the paramters
+outlier <- data.frame(h_d,ti,cd,dfft)
+write.csv(outlier, "./Outlier.csv", row.names = TRUE)
+```
+
+```{r}
+
+```
+
+
